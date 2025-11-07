@@ -5,12 +5,10 @@
   "scripts": {
     "start": "nodemon server.js"
   },
-  "author": "",
+  "author": "Ali Elsharkawy",
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "apollo-server-express": "^3.13.0",
-    "express": "^5.1.0",
-    "graphql": "^16.12.0"
+    "apollo-server": "^3.13.0"
   }
 }

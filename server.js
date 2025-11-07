@@ -1,5 +1,6 @@
-const express = require("express");
-const { ApolloServer, gql } = require("apollo-server-express");
+import { ApolloServer, gql } from "apollo-server";
+
+const PORT = 3000;
 
 // In-memory data storage
 let students = [
@@ -42,6 +43,16 @@ let enrollments = {
   2: ["2"], // Fatma enrolled in Database Systems
 };
 
+// helper Function
+const generateNextId = (Arr) => {
+  if (!Arr.length) {
+    return "1";
+  }
+
+  const maxId = Arr.length;
+  return String(maxId + 1);
+};
+
 const getCoursesByStudentId = (studentId) => {
   const courseIds = enrollments[studentId];
   return courseIds
@@ -54,15 +65,6 @@ const getStudentsByCourseId = (courseId) => {
     .filter(([, courseIds]) => courseIds.includes(courseId))
     .map(([studentId]) => students.find((student) => student.id === studentId))
     .filter(Boolean);
-};
-
-const generateNextId = (Arr) => {
-  if (!Arr.length) {
-    return "1";
-  }
-
-  const maxId = Arr.length;
-  return String(maxId + 1);
 };
 
 const typeDefs = gql`
@@ -86,9 +88,9 @@ const typeDefs = gql`
 
   type Query {
     getAllStudents: [Student!]!
-    getStudent(id: ID!): Student
+    getStudent(id: ID!): Student!
     getAllCourses: [Course!]!
-    getCourse(id: ID!): Course
+    getCourse(id: ID!): Course!
     searchStudentsByMajor(major: String!): [Student!]!
   }
 
@@ -138,12 +140,13 @@ const resolvers = {
     getCourse: (_, { id }) =>
       courses.find((course) => course.id === id) || null,
     searchStudentsByMajor: (_, { major }) =>
-      // console.log("hhhhhhhhhhhhhhhh", major)
+      //   console.log("'➡️➡️➡️➡️➡️ ",major)
       students.filter(
         (student) =>
           student.major && student.major.toLowerCase() === major.toLowerCase()
       ),
   },
+
   Mutation: {
     addStudent: (_, { name, email, age, major }) => {
       const id = generateNextId(students);
@@ -154,23 +157,21 @@ const resolvers = {
         age,
         major: typeof major === "undefined" ? null : major,
       };
-
       students.push(newStudent);
       enrollments[id] = [];
       return newStudent;
     },
     updateStudent: (_, { id, name, email, age, major }) => {
-      const student = students.find((item) => item.id === id);
+      const student = students.find((item) => item.id == id);
       if (!student) {
         console.log("No Student");
         return;
       }
-
       if (typeof name !== "undefined") student.name = name;
       if (typeof email !== "undefined") student.email = email;
       if (typeof age !== "undefined") student.age = age;
       if (typeof major !== "undefined") student.major = major;
-
+      //   console.log(student);
       return student;
     },
     deleteStudent: (_, { id }) => {
@@ -226,19 +227,9 @@ const resolvers = {
   },
 };
 
-async function start() {
-  const app = express();
-  const server = new ApolloServer({
-    typeDefs,
-    resolvers,
-  });
+//  
+const server = new ApolloServer({ typeDefs, resolvers });
 
-  await server.start();
-  server.applyMiddleware({ app, path: "/graphql" });
-
-  app.listen(5000, () => {
-    console.log("App Running on http://localhost:5000/graphql");
-  });
-}
-
-start();
+server.listen(PORT, () => {
+  console.log(`App Running on http://localhost:${PORT}/graphql`);
+});
