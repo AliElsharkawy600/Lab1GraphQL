@@ -42,6 +42,20 @@ let enrollments = {
   2: ["2"], // Fatma enrolled in Database Systems
 };
 
+const getCoursesByStudentId = (studentId) => {
+  const courseIds = enrollments[studentId];
+  return courseIds
+    .map((courseId) => courses.find((course) => course.id === courseId))
+    .filter(Boolean);
+};
+
+const getStudentsByCourseId = (courseId) => {
+  return Object.entries(enrollments)
+    .filter(([, courseIds]) => courseIds.includes(courseId))
+    .map(([studentId]) => students.find((student) => student.id === studentId))
+    .filter(Boolean);
+};
+
 const generateNextId = (Arr) => {
   if (!Arr.length) {
     return "1";
@@ -203,6 +217,12 @@ const resolvers = {
 
       return true;
     },
+  },
+  Student: {
+    courses: (student) => getCoursesByStudentId(student.id),
+  },
+  Course: {
+    students: (course) => getStudentsByCourseId(course.id),
   },
 };
 
