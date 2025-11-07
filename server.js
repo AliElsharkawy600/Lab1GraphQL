@@ -1,71 +1,11 @@
 import { ApolloServer, gql } from "apollo-server";
+import mongoose from "mongoose";
+
+import Student from "./models/students.js";
+import Course from "./models/courses.js";
 
 const PORT = 3000;
-
-// In-memory data storage
-let students = [
-  {
-    id: "1",
-    name: "Ali Saeed",
-    email: "ahmed@iti.edu",
-    age: 22,
-    major: "Computer Science",
-  },
-  {
-    id: "2",
-    name: "Fatma Ali",
-    email: "fatma@iti.edu",
-    age: 21,
-    major: "Information Systems",
-  },
-];
-
-let courses = [
-  {
-    id: "1",
-    title: "Data Structures",
-    code: "CS201",
-    credits: 3,
-    instructor: "Dr. Mohamed",
-  },
-  {
-    id: "2",
-    title: "Database Systems",
-    code: "CS301",
-    credits: 4,
-    instructor: "Dr. Sarah",
-  },
-];
-
-// Enrollment tracking (studentId -> [courseIds])
-let enrollments = {
-  1: ["1", "2"], // Ali enrolled in both courses
-  2: ["2"], // Fatma enrolled in Database Systems
-};
-
-// helper Function
-const generateNextId = (Arr) => {
-  if (!Arr.length) {
-    return "1";
-  }
-
-  const maxId = Arr.length;
-  return String(maxId + 1);
-};
-
-const getCoursesByStudentId = (studentId) => {
-  const courseIds = enrollments[studentId];
-  return courseIds
-    .map((courseId) => courses.find((course) => course.id === courseId))
-    .filter(Boolean);
-};
-
-const getStudentsByCourseId = (courseId) => {
-  return Object.entries(enrollments)
-    .filter(([, courseIds]) => courseIds.includes(courseId))
-    .map(([studentId]) => students.find((student) => student.id === studentId))
-    .filter(Boolean);
-};
+const MONGO_URI = "mongodb://localhost:27017/schoolGQL";
 
 const typeDefs = gql`
   type Student {
@@ -133,103 +73,121 @@ const typeDefs = gql`
 
 const resolvers = {
   Query: {
-    getAllStudents: () => students,
-    getStudent: (_, { id }) =>
-      students.find((student) => student.id === id) || null,
-    getAllCourses: () => courses,
-    getCourse: (_, { id }) =>
-      courses.find((course) => course.id === id) || null,
-    searchStudentsByMajor: (_, { major }) =>
+    getAllStudents: async () => {
+      const allStudents = await Student.find().populate("courses");
+      return allStudents;
+    },
+    getStudent: async (_, { id }) => {
+      const student = await Student.findById(id).populate("courses");
+      return student;
+    },
+    getAllCourses: async () => {
+      const allCourses = await Course.find();
+      return allCourses;
+    },
+    getCourse: async (_, { id }) => {
+      const course = await Course.findById(id);
+      return course;
+    },
+    searchStudentsByMajor: async (_, { major }) => {
       //   console.log("'➡️➡️➡️➡️➡️ ",major)
-      students.filter(
-        (student) =>
-          student.major && student.major.toLowerCase() === major.toLowerCase()
-      ),
+      const matchedStudents = await Student.find({
+        major: { $regex: `^${major}$`, $options: "i" },
+      }).populate("courses");
+      return matchedStudents;
+    },
   },
 
   Mutation: {
-    addStudent: (_, { name, email, age, major }) => {
-      const id = generateNextId(students);
-      const newStudent = {
-        id,
-        name,
-        email,
-        age,
-        major: typeof major === "undefined" ? null : major,
-      };
-      students.push(newStudent);
-      enrollments[id] = [];
+    addStudent: async (_, { name, email, age, major }) => {
+      const newStudent = await Student.create({ name, email, age, major });
       return newStudent;
     },
-    updateStudent: (_, { id, name, email, age, major }) => {
-      const student = students.find((item) => item.id == id);
-      if (!student) {
-        console.log("No Student");
-        return;
-      }
-      if (typeof name !== "undefined") student.name = name;
-      if (typeof email !== "undefined") student.email = email;
-      if (typeof age !== "undefined") student.age = age;
-      if (typeof major !== "undefined") student.major = major;
-      //   console.log(student);
-      return student;
-    },
-    deleteStudent: (_, { id }) => {
-      const index = students.findIndex((student) => student.id === id);
-      if (index === -1) {
-        return false;
-      }
+    updateStudent: async (_, { id, name, email, age, major }) => {
+      const updateFields = {};
+      if (typeof name !== "undefined") updateFields.name = name;
+      if (typeof email !== "undefined") updateFields.email = email;
+      if (typeof age !== "undefined") updateFields.age = age;
+      if (typeof major !== "undefined") updateFields.major = major;
 
-      students.splice(index, 1);
-      delete enrollments[id];
-      return true;
+      const updatedStudent = await Student.findByIdAndUpdate(id, updateFields, {
+        new: true,
+        runValidators: true,
+      });
+      return updatedStudent;
     },
-    addCourse: (_, { title, code, credits, instructor }) => {
-      const id = generateNextId(courses);
-      const newCourse = { id, title, code, credits, instructor };
-      courses.push(newCourse);
+    deleteStudent: async (_, { id }) => {
+      const deletedStudent = await Student.findByIdAndDelete(id);
+      return Boolean(deletedStudent);
+    },
+    addCourse: async (_, { title, code, credits, instructor }) => {
+      const newCourse = await Course.create({
+        title,
+        code,
+        credits,
+        instructor,
+      });
       return newCourse;
     },
-    updateCourse: (_, { id, title, code, credits, instructor }) => {
-      const course = courses.find((item) => item.id === id);
-      if (!course) {
+    updateCourse: async (_, { id, title, code, credits, instructor }) => {
+      const updateFields = {};
+      if (typeof title !== "undefined") updateFields.title = title;
+      if (typeof code !== "undefined") updateFields.code = code;
+      if (typeof credits !== "undefined") updateFields.credits = credits;
+      if (typeof instructor !== "undefined")
+        updateFields.instructor = instructor;
+
+      const updatedCourse = await Course.findByIdAndUpdate(id, updateFields, {
+        new: true,
+        runValidators: true,
+      });
+
+      if (!updatedCourse) {
         throw new Error(`Course with id "${id}" not found`);
       }
 
-      if (typeof title !== "undefined") course.title = title;
-      if (typeof code !== "undefined") course.code = code;
-      if (typeof credits !== "undefined") course.credits = credits;
-      if (typeof instructor !== "undefined") course.instructor = instructor;
-
-      return course;
+      return updatedCourse;
     },
-    deleteCourse: (_, { id }) => {
-      const index = courses.findIndex((course) => course.id === id);
-      if (index === -1) {
+    deleteCourse: async (_, { id }) => {
+      const deletedCourse = await Course.findByIdAndDelete(id);
+      if (!deletedCourse) {
         return false;
       }
-
-      courses.splice(index, 1);
-      Object.keys(enrollments).forEach((studentId) => {
-        enrollments[studentId] = enrollments[studentId].filter(
-          (courseId) => courseId !== id
-        );
-      });
-
+      //delete course from student
+      await Student.updateMany({ courses: id }, { $pull: { courses: id } });
       return true;
     },
   },
   Student: {
-    courses: (student) => getCoursesByStudentId(student.id),
+    courses: async (student) => {
+      if (!student.courses || !student.courses.length) {
+        return [];
+      }
+
+      if (typeof student.courses[0]?.title !== "undefined") {
+        return student.courses;
+      }
+
+      const courseIds = student.courses.map((course) => course?._id ?? course);
+      return Course.find({ _id: { $in: courseIds } });
+    },
   },
   Course: {
-    students: (course) => getStudentsByCourseId(course.id),
+    students: (course) => {
+      const courseId = course._id ?? course.id;
+      return Student.find({ courses: courseId });
+    },
   },
 };
 
-//  
+//
 const server = new ApolloServer({ typeDefs, resolvers });
 
 server.listen(PORT, () => {
   console.log(`App Running on http://localhost:${PORT}/graphql`);
+  console.log("➡️➡️➡️➡️", MONGO_URI, PORT);
+  mongoose
+    .connect(MONGO_URI)
+    .then(() => console.log("✅✅ Connected to MongoDB"))
+    .catch((err) => console.error("❌❌ Error connecting to MongoDB", err));
 });

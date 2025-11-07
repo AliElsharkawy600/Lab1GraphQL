@@ -1,6 +1,7 @@
 {
   "name": "task",
   "version": "1.0.0",
+  "type": "module",
   "main": "server.js",
   "scripts": {
     "start": "nodemon server.js"
@@ -9,6 +10,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "apollo-server": "^3.13.0"
+    "apollo-server": "^3.13.0",
+    "mongoose": "^8.19.2"
   }
 }
