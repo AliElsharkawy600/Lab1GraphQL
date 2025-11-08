@@ -74,11 +74,11 @@ const typeDefs = gql`
 const resolvers = {
   Query: {
     getAllStudents: async () => {
-      const allStudents = await Student.find().populate("courses");
+      const allStudents = await Student.find();
       return allStudents;
     },
     getStudent: async (_, { id }) => {
-      const student = await Student.findById(id).populate("courses");
+      const student = await Student.findById(id);
       return student;
     },
     getAllCourses: async () => {
@@ -93,7 +93,7 @@ const resolvers = {
       //   console.log("'➡️➡️➡️➡️➡️ ",major)
       const matchedStudents = await Student.find({
         major: { $regex: `^${major}$`, $options: "i" },
-      }).populate("courses");
+      });
       return matchedStudents;
     },
   },
